@@ -34,10 +34,10 @@ public class HeadChopper : MonoBehaviour
         SkinnedMeshRenderer skin = GetComponent<SkinnedMeshRenderer>();
         Mesh mesh = skin.sharedMesh = (Mesh)Instantiate(skin.sharedMesh);
 
-        // Find all the bones that we want to collapse
+        // Find the head
         Transform[] bones = skin.bones;
         Transform headBone=null;
-        int headBoneIndex=-1;
+        int headBoneIndex = -1;
 
         bool[] headBoneFlag = new bool[bones.Length];
 
@@ -57,6 +57,27 @@ public class HeadChopper : MonoBehaviour
             return;
         }
 
+        // Find the neck as well as this gives a better stability of the collapsed neck under rotation
+        Transform neckBone = null;
+        int neckBoneIndex = -1;
+
+        for (int i = 0; i < bones.Length; i++)
+        {
+            if (bones[i].name.IndexOf("neck", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                neckBone = bones[i];
+                neckBoneIndex = i;
+                break;
+            }
+        }
+
+        if (neckBoneIndex<0)
+        {
+            Debug.Log("Failed to find neck object");
+            return;
+        }
+
+        // Now tag all the bones that we want to collapse
         for (int i = 0; i < bones.Length; i++)
         {
             headBoneFlag[i] = false;
@@ -71,13 +92,12 @@ public class HeadChopper : MonoBehaviour
                 cur = cur.parent;
             }
         }
-
         headBoneFlag[headBoneIndex] = true;
 
         // Now move all vertices that have a weight > 0 for a tagged bone to the vertex position of the head bone
         // Vector3 headPos = headBone.transform.localPosition; // Attempt 1
 
-        Vector3 headPos = GetComponent<Transform>().InverseTransformPoint(headBone.transform.position);
+        Vector3 neckPos = GetComponent<Transform>().InverseTransformPoint(neckBone.transform.position);
 
         BoneWeight[] meshBoneweights = mesh.boneWeights;
         Vector3[] vertices = mesh.vertices;
@@ -93,10 +113,10 @@ public class HeadChopper : MonoBehaviour
                 (headBoneFlag[meshBoneweights[i].boneIndex3] &&
                 meshBoneweights[i].weight3 > 0))
             {
-                vertices[i] = headPos;
+                vertices[i] = neckPos;
 
                 // We remove smooth blending for anything that was partly linked to the head only
-                meshBoneweights[i].boneIndex0 = headBoneIndex;
+                meshBoneweights[i].boneIndex0 = neckBoneIndex;
                 meshBoneweights[i].weight0 = 1.0f;
                 meshBoneweights[i].boneIndex1 = meshBoneweights[i].boneIndex2 = meshBoneweights[i].boneIndex3 = 0;
                 meshBoneweights[i].weight1 = meshBoneweights[i].weight2 = meshBoneweights[i].weight3 = 0f;
